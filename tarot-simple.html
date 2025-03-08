@@ -26,11 +26,57 @@
             document.getElementById('status').textContent = msg;
         }
 
+        // Component for grabbable cards
+        AFRAME.registerComponent('grabbable-card', {
+            init: function() {
+                this.isGrabbed = false;
+                this.grabbingHand = null;
+
+                this.el.addEventListener('gripdown', (evt) => {
+                    if (!this.isGrabbed) {
+                        this.isGrabbed = true;
+                        this.grabbingHand = evt.target;
+                        this.attachToHand();
+                        // Play card grab sound
+                        document.querySelector('#cardGrabSound').components.sound.playSound();
+                    }
+                });
+
+                this.el.addEventListener('gripup', () => {
+                    if (this.isGrabbed) {
+                        this.isGrabbed = false;
+                        this.grabbingHand = null;
+                        // Play card release sound
+                        document.querySelector('#cardReleaseSound').components.sound.playSound();
+                    }
+                });
+            },
+
+            attachToHand: function() {
+                // Position card in a natural "held" position
+                this.el.setAttribute('animation', {
+                    property: 'position',
+                    to: '0.1 -0.05 -0.1', // Relative to hand
+                    dur: 200,
+                    easing: 'easeOutQuad'
+                });
+                this.el.setAttribute('animation__rotation', {
+                    property: 'rotation',
+                    to: '-20 0 0', // Angled like a held card
+                    dur: 200,
+                    easing: 'easeOutQuad'
+                });
+            }
+        });
+
         // Component for the deck of cards
         AFRAME.registerComponent('tarot-deck', {
             init: function() {
                 this.cardCount = 22; // Major Arcana
                 this.isHovered = false;
+                this.cardImages = [
+                    '#fool', '#magician', '#priestess', // etc...
+                ];
                 
                 // Create visual cursor feedback
                 this.cursorRing = document.createElement('a-ring');
@@ -61,14 +107,14 @@
                 });
 
                 // Draw card on trigger press
-                this.el.addEventListener('click', () => {
+                this.el.addEventListener('click', (evt) => {
                     if (this.cardCount > 0) {
-                        this.drawCard();
+                        this.drawCard(evt.detail.intersection.point);
                     }
                 });
             },
 
-            drawCard: function() {
+            drawCard: function(intersectionPoint) {
                 if (this.cardCount <= 0) return;
 
                 // Create a new card
@@ -78,12 +124,15 @@
                     width: 0.063,
                     height: 0.11
                 });
+
+                // Set random card image from Major Arcana
+                const randomCard = this.cardImages[Math.floor(Math.random() * this.cardImages.length)];
                 card.setAttribute('material', {
-                    color: 'white',
+                    src: randomCard,
                     side: 'double'
                 });
                 
-                // Position slightly above deck
+                // Initial position at deck
                 const deckPosition = this.el.getAttribute('position');
                 card.setAttribute('position', {
                     x: deckPosition.x,
@@ -91,22 +140,16 @@
                     z: deckPosition.z
                 });
 
-                // Animate card being drawn
-                card.setAttribute('animation', {
-                    property: 'position',
-                    to: `${deckPosition.x} ${deckPosition.y + 0.2} ${deckPosition.z - 0.2}`,
-                    dur: 1000,
-                    easing: 'easeOutQuad'
-                });
-                card.setAttribute('animation__rotation', {
-                    property: 'rotation',
-                    to: '-20 0 0',
-                    dur: 1000,
-                    easing: 'easeOutQuad'
-                });
+                // Add grabbable component
+                card.setAttribute('grabbable-card', '');
+                card.setAttribute('class', 'interactive');
 
                 this.el.sceneEl.appendChild(card);
                 this.cardCount--;
+
+                // Play card draw sound
+                document.querySelector('#cardDrawSound').components.sound.playSound();
+                
                 log(`Drew a card! ${this.cardCount} cards remaining`);
             }
         });
@@ -116,14 +159,49 @@
     <div id="status">Loading...</div>
 
     <a-scene>
+        <a-assets>
+            <!-- Card Images -->
+            <img id="card-back" src="assets/images/card-back.jpg">
+            <img id="fool" src="assets/images/major-arcana/fool.jpg">
+            <img id="magician" src="assets/images/major-arcana/magician.jpg">
+            <img id="priestess" src="assets/images/major-arcana/high-priestess.jpg">
+            
+            <!-- Sounds -->
+            <audio id="ambient" src="assets/sounds/ambient.mp3" preload="auto"></audio>
+            <audio id="card-draw" src="assets/sounds/card-draw.mp3" preload="auto"></audio>
+            <audio id="card-grab" src="assets/sounds/card-grab.mp3" preload="auto"></audio>
+            <audio id="card-release" src="assets/sounds/card-release.mp3" preload="auto"></audio>
+        </a-assets>
+
         <!-- Environment -->
         <a-entity environment="preset: forest; ground: flat; groundColor: #553e35; groundColor2: #694439; dressing: trees; dressingAmount: 500; dressingColor: #234d1e; grid: none"></a-entity>
+
+        <!-- Ambient Sound -->
+        <a-entity sound="src: #ambient; autoplay: true; loop: true; volume: 0.5"></a-entity>
+
+        <!-- Sound Effects -->
+        <a-entity id="cardDrawSound" sound="src: #card-draw; volume: 1; positional: false"></a-entity>
+        <a-entity id="cardGrabSound" sound="src: #card-grab; volume: 1; positional: false"></a-entity>
+        <a-entity id="cardReleaseSound" sound="src: #card-release; volume: 1; positional: false"></a-entity>
 
         <!-- Table -->
         <a-cylinder position="0 0.75 -1" radius="0.5" height="0.05" color="#4B0082"></a-cylinder>
 
+        <!-- Reading Layout Instructions -->
+        <a-plane position="-0.2 0.753 -1" 
+                 rotation="-90 0 0" 
+                 width="0.6" 
+                 height="0.8" 
+                 material="color: #2a2a4e; opacity: 0.8">
+            <a-text value="Celtic Cross Reading\n\n1. Present\n2. Challenge\n3. Past\n4. Future\n5. Above\n6. Below\n7. Advice\n8. External\n9. Hopes\n10. Outcome"
+                    align="center" 
+                    baseline="center"
+                    scale="0.1 0.1 0.1"
+                    color="white"></a-text>
+        </a-plane>
+
         <!-- Tarot Deck -->
-        <a-box position="0 0.78 -1" 
+        <a-box position="0.3 0.78 -1" 
                width="0.063" height="0.03" depth="0.11"
                color="#1a1a2e"
                material="metalness: 0.3; roughness: 0.7"
@@ -138,23 +216,29 @@
             <!-- Controllers -->
             <a-entity id="leftHand"
                       hand-controls="hand: left"
-                      laser-controls="hand: left"
-                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5">
-                <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
+                      laser-controls="hand: left; defaultModelColor: #9370DB"
+                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0.0 0.0 0.0"
+                      oculus-touch-controls="hand: left; model: false">
+                <a-entity position="0 0 0" rotation="-45 0 0">
+                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5" position="0 0 0"></a-sphere>
+                </a-entity>
             </a-entity>
             
             <a-entity id="rightHand"
                       hand-controls="hand: right"
-                      laser-controls="hand: right"
-                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5">
-                <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
+                      laser-controls="hand: right; defaultModelColor: #9370DB"
+                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0.0 0.0 0.0"
+                      oculus-touch-controls="hand: right; model: false">
+                <a-entity position="0 0 0" rotation="-45 0 0">
+                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5" position="0 0 0"></a-sphere>
+                </a-entity>
             </a-entity>
         </a-entity>
     </a-scene>
 
     <script>
         const scene = document.querySelector('a-scene');
-        scene.addEventListener('enter-vr', () => log('Point at the deck and press trigger to draw a card'));
+        scene.addEventListener('enter-vr', () => log('Point at the deck and press trigger to draw a card, use grip to grab cards'));
         scene.addEventListener('loaded', () => log('Scene loaded - Click "Enter VR" when ready'));
     </script>
 </body>
