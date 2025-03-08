@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Basic WebXR Test</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        #status {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Checking WebXR...</div>
+
+    <a-scene>
+        <!-- A simple red box to confirm rendering -->
+        <a-box position="0 1.6 -3" color="red"></a-box>
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="green"></a-plane>
+    </a-scene>
+
+    <script>
+        // Simple status updates
+        const status = document.getElementById('status');
+        
+        // Check WebXR
+        if (navigator.xr) {
+            status.textContent = 'WebXR API found';
+            navigator.xr.isSessionSupported('immersive-vr')
+                .then(supported => {
+                    if (supported) {
+                        status.textContent = 'WebXR VR supported!';
+                    } else {
+                        status.textContent = 'WebXR found but VR not supported';
+                    }
+                });
+        } else {
+            status.textContent = 'WebXR not found';
+        }
+
+        // Listen for A-Frame scene loaded
+        document.querySelector('a-scene').addEventListener('loaded', function () {
+            status.textContent += ' | Scene loaded';
+        });
+
+        // Listen for VR mode
+        document.querySelector('a-scene').addEventListener('enter-vr', function () {
+            status.textContent += ' | Entered VR';
+        });
+    </script>
+</body>
+</html> 

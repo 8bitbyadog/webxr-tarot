@@ -5,28 +5,118 @@
     <title>WebXR Tarot Reading</title>
     <meta name="description" content="A WebXR tarot reading application with hand tracking for Meta Quest 3">
     
-    <!-- WebXR Feature Detection - Modified for Quest compatibility -->
+    <style>
+        .a-loader-title {
+            color: #9370DB;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 9999;
+        }
+
+        #loading-progress {
+            font-size: 24px;
+            margin: 20px;
+            color: #9370DB;
+        }
+
+        #loading-message {
+            font-size: 18px;
+            color: #ffffff;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #9370DB;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <!-- WebXR Feature Detection -->
     <script>
-        // Don't redirect immediately - wait for page to load
-        window.addEventListener('DOMContentLoaded', function() {
-            // Check if WebXR is supported in a way that works on Quest
-            if (typeof navigator.xr === 'undefined') {
-                console.warn('WebXR API not found - but will try to continue anyway');
-                // Don't redirect immediately, as Quest might initialize WebXR later
-                
-                // Set a timeout to check again after a delay
-                setTimeout(function() {
-                    if (typeof navigator.xr === 'undefined') {
-                        console.error('WebXR still not available after delay');
-                        // Only redirect if we're not on a known VR device
-                        if (!navigator.userAgent.includes('Quest')) {
-                            window.location.href = 'fallback.html';
-                        }
-                    }
-                }, 2000);
-            } else {
-                console.log('WebXR API detected');
+        async function checkWebXRSupport() {
+            // Check if running in Quest Browser
+            const isQuestBrowser = /OculusBrowser/i.test(navigator.userAgent);
+            console.log('Browser detection:', isQuestBrowser ? 'Quest Browser detected' : 'Not Quest Browser');
+
+            // If not Quest browser, give more time for WebXR to initialize
+            const initializationDelay = isQuestBrowser ? 0 : 2000;
+
+            // Update loading message
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) {
+                loadingMessage.textContent = 'Checking WebXR compatibility...';
             }
+
+            try {
+                // Wait for potential delayed WebXR initialization
+                await new Promise(resolve => setTimeout(resolve, initializationDelay));
+
+                if (typeof navigator.xr === 'undefined') {
+                    throw new Error('WebXR API not found');
+                }
+
+                // Check for immersive-vr support
+                const supported = await navigator.xr.isSessionSupported('immersive-vr');
+                if (!supported) {
+                    throw new Error('Immersive VR not supported');
+                }
+
+                console.log('WebXR supported and ready');
+                if (loadingMessage) {
+                    loadingMessage.textContent = 'WebXR supported! Loading assets...';
+                }
+
+                // Proceed with asset loading
+                await window.AssetLoader.preloadAll();
+
+                // Hide loading screen after successful loading
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('WebXR Error:', error);
+                
+                // Only redirect to fallback if not on Quest browser
+                if (!isQuestBrowser) {
+                    window.location.href = 'fallback.html';
+                } else {
+                    // For Quest browser, retry after a delay
+                    console.log('Retrying WebXR initialization...');
+                    setTimeout(checkWebXRSupport, 2000);
+                }
+            }
+        }
+
+        // Wait for DOM to be ready before checking WebXR
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, checking WebXR support...');
+            checkWebXRSupport();
         });
     </script>
     
@@ -94,6 +184,7 @@
     <script src="https://cdn.jsdelivr.net/npm/aframe-hand-tracking-controls-component@0.0.7/dist/aframe-hand-tracking-controls-component.min.js"></script>
     
     <!-- Custom Scripts -->
+    <script src="js/asset-loader.js"></script>
     <script src="js/card-system.js"></script>
     <script src="js/hand-tracking.js"></script>
     <script src="js/spreads.js"></script>
@@ -120,12 +211,8 @@
     </style>
 </head>
 <body>
-    <!-- Loading indicator -->
-    <div id="loading-indicator">
-        Loading WebXR Tarot Application...
-        <div id="loading-progress">Please wait while assets are loading</div>
-    </div>
-    
+    <div id="loading-screen">Loading...</div>
+
     <a-scene 
         webxr="optionalFeatures: hand-tracking, local-floor, hit-test, dom-overlay; overlayElement: #overlay;"
         physics="debug: false; gravity: 0 -9.8 0;"
