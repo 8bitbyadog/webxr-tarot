@@ -34,6 +34,10 @@
             background: #9370DB;
         }
     </style>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="card-system.js"></script>
+    <script src="controller-interaction.js"></script>
+    <script src="spreads.js"></script>
 </head>
 <body>
     <div class="container">
@@ -60,5 +64,32 @@
             </ul>
         </div>
     </div>
+    <a-scene>
+      <!-- Environment -->
+      <a-entity environment="preset: forest; groundColor: #553613;"></a-entity>
+      
+      <!-- Table -->
+      <a-cylinder position="0 0.5 -0.8" radius="0.5" height="0.02" color="#553613"></a-cylinder>
+      
+      <!-- Controllers -->
+      <a-entity 
+        id="rightHand" 
+        oculus-touch-controls="hand: right" 
+        laser-controls="hand: right"
+        raycaster="objects: .interactive; far: 10">
+      </a-entity>
+      
+      <a-entity 
+        id="leftHand" 
+        oculus-touch-controls="hand: left"
+        laser-controls="hand: left"
+        raycaster="objects: .interactive; far: 10">
+      </a-entity>
+
+      <!-- Camera -->
+      <a-entity position="0 1.6 0">
+        <a-camera></a-camera>
+      </a-entity>
+    </a-scene>
 </body>
 </html> 
