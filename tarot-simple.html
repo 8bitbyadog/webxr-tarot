@@ -7,37 +7,104 @@
     <script src="https://cdn.jsdelivr.net/npm/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
     
-    <style>
-        #status {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px;
-            font-family: Arial, sans-serif;
-            z-index: 999;
-        }
-    </style>
-
     <script>
-        function log(msg) {
-            console.log(msg);
-            document.getElementById('status').textContent = msg;
-        }
+        // Layout Menu Component
+        AFRAME.registerComponent('layout-menu', {
+            init: function() {
+                this.layouts = [
+                    { name: 'Celtic Cross', positions: [
+                        { x: -0.2, y: 0.755, z: -1.0, label: '1. Present' },
+                        { x: -0.1, y: 0.755, z: -1.0, label: '2. Challenge' },
+                        { x: -0.3, y: 0.755, z: -1.0, label: '3. Past' },
+                        { x: -0.2, y: 0.755, z: -0.8, label: '4. Future' },
+                        { x: -0.2, y: 0.755, z: -1.2, label: '5. Above' }
+                        // ... more positions
+                    ]},
+                    { name: 'Three Card', positions: [
+                        { x: -0.3, y: 0.755, z: -1.0, label: 'Past' },
+                        { x: -0.2, y: 0.755, z: -1.0, label: 'Present' },
+                        { x: -0.1, y: 0.755, z: -1.0, label: 'Future' }
+                    ]}
+                ];
+                this.currentLayout = 0;
+                this.createLayoutMarkers();
+                this.createMenuButtons();
+            },
 
-        // Component for grabbable cards
+            createLayoutMarkers: function() {
+                this.clearMarkers();
+                const layout = this.layouts[this.currentLayout];
+                layout.positions.forEach(pos => {
+                    const marker = document.createElement('a-entity');
+                    marker.setAttribute('geometry', 'primitive: plane; width: 0.063; height: 0.11');
+                    marker.setAttribute('material', 'color: #9370DB; opacity: 0.2');
+                    marker.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+                    marker.setAttribute('rotation', '-90 0 0');
+                    
+                    const label = document.createElement('a-text');
+                    label.setAttribute('value', pos.label);
+                    label.setAttribute('align', 'center');
+                    label.setAttribute('position', '0 0.001 0');
+                    label.setAttribute('scale', '0.05 0.05 0.05');
+                    label.setAttribute('color', 'white');
+                    marker.appendChild(label);
+                    
+                    this.el.sceneEl.appendChild(marker);
+                });
+            },
+
+            createMenuButtons: function() {
+                // Previous Layout Button
+                const prevBtn = document.createElement('a-entity');
+                prevBtn.setAttribute('geometry', 'primitive: plane; width: 0.05; height: 0.05');
+                prevBtn.setAttribute('material', 'color: #4B0082');
+                prevBtn.setAttribute('position', '-0.4 0.755 -1');
+                prevBtn.setAttribute('rotation', '-90 0 0');
+                prevBtn.setAttribute('class', 'interactive');
+                prevBtn.addEventListener('click', () => this.previousLayout());
+                this.el.sceneEl.appendChild(prevBtn);
+
+                // Next Layout Button
+                const nextBtn = document.createElement('a-entity');
+                nextBtn.setAttribute('geometry', 'primitive: plane; width: 0.05; height: 0.05');
+                nextBtn.setAttribute('material', 'color: #4B0082');
+                nextBtn.setAttribute('position', '0.1 0.755 -1');
+                nextBtn.setAttribute('rotation', '-90 0 0');
+                nextBtn.setAttribute('class', 'interactive');
+                nextBtn.addEventListener('click', () => this.nextLayout());
+                this.el.sceneEl.appendChild(nextBtn);
+            },
+
+            clearMarkers: function() {
+                const markers = document.querySelectorAll('[data-layout-marker]');
+                markers.forEach(marker => marker.parentNode.removeChild(marker));
+            },
+
+            nextLayout: function() {
+                this.currentLayout = (this.currentLayout + 1) % this.layouts.length;
+                this.createLayoutMarkers();
+            },
+
+            previousLayout: function() {
+                this.currentLayout = (this.currentLayout - 1 + this.layouts.length) % this.layouts.length;
+                this.createLayoutMarkers();
+            }
+        });
+
+        // Enhanced Grabbable Card Component
         AFRAME.registerComponent('grabbable-card', {
             init: function() {
                 this.isGrabbed = false;
                 this.grabbingHand = null;
+                this.originalParent = this.el.parentNode;
+                this.startPosition = this.el.getAttribute('position');
+                this.startRotation = this.el.getAttribute('rotation');
 
                 this.el.addEventListener('gripdown', (evt) => {
                     if (!this.isGrabbed) {
                         this.isGrabbed = true;
                         this.grabbingHand = evt.target;
-                        this.attachToHand();
-                        // Play card grab sound
+                        this.attachToHand(evt.target);
                         document.querySelector('#cardGrabSound').components.sound.playSound();
                     }
                 });
@@ -45,79 +112,57 @@
                 this.el.addEventListener('gripup', () => {
                     if (this.isGrabbed) {
                         this.isGrabbed = false;
-                        this.grabbingHand = null;
-                        // Play card release sound
+                        this.detachFromHand();
                         document.querySelector('#cardReleaseSound').components.sound.playSound();
                     }
                 });
             },
 
-            attachToHand: function() {
-                // Position card in a natural "held" position
-                this.el.setAttribute('animation', {
-                    property: 'position',
-                    to: '0.1 -0.05 -0.1', // Relative to hand
-                    dur: 200,
-                    easing: 'easeOutQuad'
+            attachToHand: function(hand) {
+                // Parent to hand
+                this.el.setAttribute('position', '0.1 -0.05 -0.1');
+                this.el.setAttribute('rotation', '-45 0 0');
+                hand.appendChild(this.el);
+            },
+
+            detachFromHand: function() {
+                // Check if near any layout markers
+                const markers = document.querySelectorAll('[data-layout-marker]');
+                const cardWorldPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
+                let closestMarker = null;
+                let closestDist = 0.1; // Snap threshold
+
+                markers.forEach(marker => {
+                    const markerPos = marker.object3D.getWorldPosition(new THREE.Vector3());
+                    const dist = cardWorldPos.distanceTo(markerPos);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestMarker = marker;
+                    }
                 });
-                this.el.setAttribute('animation__rotation', {
-                    property: 'rotation',
-                    to: '-20 0 0', // Angled like a held card
-                    dur: 200,
-                    easing: 'easeOutQuad'
-                });
+
+                if (closestMarker) {
+                    // Snap to marker position
+                    this.el.setAttribute('position', closestMarker.getAttribute('position'));
+                    this.el.setAttribute('rotation', closestMarker.getAttribute('rotation'));
+                }
+
+                // Return to scene root if not snapped
+                if (!closestMarker) {
+                    this.originalParent.appendChild(this.el);
+                    this.el.setAttribute('position', this.startPosition);
+                    this.el.setAttribute('rotation', this.startRotation);
+                }
             }
         });
 
-        // Component for the deck of cards
+        // Updated Tarot Deck Component
         AFRAME.registerComponent('tarot-deck', {
-            init: function() {
-                this.cardCount = 22; // Major Arcana
-                this.isHovered = false;
-                this.cardImages = [
-                    '#fool', '#magician', '#priestess', // etc...
-                ];
-                
-                // Create visual cursor feedback
-                this.cursorRing = document.createElement('a-ring');
-                this.cursorRing.setAttribute('radius-inner', '0.01');
-                this.cursorRing.setAttribute('radius-outer', '0.02');
-                this.cursorRing.setAttribute('material', {
-                    color: '#9370DB',
-                    opacity: 0.8,
-                    shader: 'flat'
-                });
-                this.cursorRing.setAttribute('position', '0 0.001 0');
-                this.cursorRing.setAttribute('rotation', '-90 0 0');
-                this.cursorRing.setAttribute('visible', false);
-                this.el.appendChild(this.cursorRing);
-
-                // Hover feedback
-                this.el.addEventListener('raycaster-intersected', () => {
-                    this.isHovered = true;
-                    this.cursorRing.setAttribute('visible', true);
-                    this.el.setAttribute('material', 'emissive', '#9370DB');
-                    this.el.setAttribute('material', 'emissiveIntensity', 0.2);
-                });
-
-                this.el.addEventListener('raycaster-intersected-cleared', () => {
-                    this.isHovered = false;
-                    this.cursorRing.setAttribute('visible', false);
-                    this.el.setAttribute('material', 'emissiveIntensity', 0);
-                });
-
-                // Draw card on trigger press
-                this.el.addEventListener('click', (evt) => {
-                    if (this.cardCount > 0) {
-                        this.drawCard(evt.detail.intersection.point);
-                    }
-                });
-            },
-
+            // ... (keep existing init and other methods)
+            
             drawCard: function(intersectionPoint) {
                 if (this.cardCount <= 0) return;
 
-                // Create a new card
                 const card = document.createElement('a-entity');
                 card.setAttribute('geometry', {
                     primitive: 'plane',
@@ -125,14 +170,13 @@
                     height: 0.11
                 });
 
-                // Set random card image from Major Arcana
                 const randomCard = this.cardImages[Math.floor(Math.random() * this.cardImages.length)];
                 card.setAttribute('material', {
                     src: randomCard,
                     side: 'double'
                 });
-                
-                // Initial position at deck
+
+                // Position at deck initially
                 const deckPosition = this.el.getAttribute('position');
                 card.setAttribute('position', {
                     x: deckPosition.x,
@@ -140,106 +184,42 @@
                     z: deckPosition.z
                 });
 
-                // Add grabbable component
                 card.setAttribute('grabbable-card', '');
                 card.setAttribute('class', 'interactive');
 
                 this.el.sceneEl.appendChild(card);
                 this.cardCount--;
-
-                // Play card draw sound
                 document.querySelector('#cardDrawSound').components.sound.playSound();
-                
-                log(`Drew a card! ${this.cardCount} cards remaining`);
             }
         });
     </script>
 </head>
 <body>
-    <div id="status">Loading...</div>
-
-    <a-scene>
-        <a-assets>
-            <!-- Card Images -->
-            <img id="card-back" src="assets/images/card-back.jpg">
-            <img id="fool" src="assets/images/major-arcana/fool.jpg">
-            <img id="magician" src="assets/images/major-arcana/magician.jpg">
-            <img id="priestess" src="assets/images/major-arcana/high-priestess.jpg">
-            
-            <!-- Sounds -->
-            <audio id="ambient" src="assets/sounds/ambient.mp3" preload="auto"></audio>
-            <audio id="card-draw" src="assets/sounds/card-draw.mp3" preload="auto"></audio>
-            <audio id="card-grab" src="assets/sounds/card-grab.mp3" preload="auto"></audio>
-            <audio id="card-release" src="assets/sounds/card-release.mp3" preload="auto"></audio>
-        </a-assets>
-
-        <!-- Environment -->
-        <a-entity environment="preset: forest; ground: flat; groundColor: #553e35; groundColor2: #694439; dressing: trees; dressingAmount: 500; dressingColor: #234d1e; grid: none"></a-entity>
-
-        <!-- Ambient Sound -->
-        <a-entity sound="src: #ambient; autoplay: true; loop: true; volume: 0.5"></a-entity>
-
-        <!-- Sound Effects -->
-        <a-entity id="cardDrawSound" sound="src: #card-draw; volume: 1; positional: false"></a-entity>
-        <a-entity id="cardGrabSound" sound="src: #card-grab; volume: 1; positional: false"></a-entity>
-        <a-entity id="cardReleaseSound" sound="src: #card-release; volume: 1; positional: false"></a-entity>
-
-        <!-- Table -->
-        <a-cylinder position="0 0.75 -1" radius="0.5" height="0.05" color="#4B0082"></a-cylinder>
-
-        <!-- Reading Layout Instructions -->
-        <a-plane position="-0.2 0.753 -1" 
-                 rotation="-90 0 0" 
-                 width="0.6" 
-                 height="0.8" 
-                 material="color: #2a2a4e; opacity: 0.8">
-            <a-text value="Celtic Cross Reading\n\n1. Present\n2. Challenge\n3. Past\n4. Future\n5. Above\n6. Below\n7. Advice\n8. External\n9. Hopes\n10. Outcome"
-                    align="center" 
-                    baseline="center"
-                    scale="0.1 0.1 0.1"
-                    color="white"></a-text>
-        </a-plane>
-
-        <!-- Tarot Deck -->
-        <a-box position="0.3 0.78 -1" 
-               width="0.063" height="0.03" depth="0.11"
-               color="#1a1a2e"
-               material="metalness: 0.3; roughness: 0.7"
-               tarot-deck></a-box>
-
-        <!-- Player Rig with Movement -->
-        <a-entity id="rig" position="0 0 0.5" movement-controls="fly: false">
-            <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
-                <a-cursor visible="false"></a-cursor>
-            </a-camera>
-            
-            <!-- Controllers -->
-            <a-entity id="leftHand"
-                      hand-controls="hand: left"
-                      laser-controls="hand: left; defaultModelColor: #9370DB"
-                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0.0 0.0 0.0"
-                      oculus-touch-controls="hand: left; model: false">
-                <a-entity position="0 0 0" rotation="-45 0 0">
-                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5" position="0 0 0"></a-sphere>
-                </a-entity>
-            </a-entity>
-            
-            <a-entity id="rightHand"
-                      hand-controls="hand: right"
-                      laser-controls="hand: right; defaultModelColor: #9370DB"
-                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0.0 0.0 0.0"
-                      oculus-touch-controls="hand: right; model: false">
-                <a-entity position="0 0 0" rotation="-45 0 0">
-                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5" position="0 0 0"></a-sphere>
-                </a-entity>
-            </a-entity>
+    <!-- ... (keep existing scene setup) ... -->
+    
+    <!-- Updated Controller Setup -->
+    <a-entity id="leftHand"
+              hand-controls="hand: left"
+              laser-controls="hand: left"
+              raycaster="objects: .interactive; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0 0 -0.1">
+        <!-- Adjust laser origin to come from index finger -->
+        <a-entity position="0 0 -0.1" rotation="-45 0 0">
+            <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
         </a-entity>
-    </a-scene>
+    </a-entity>
+    
+    <a-entity id="rightHand"
+              hand-controls="hand: right"
+              laser-controls="hand: right"
+              raycaster="objects: .interactive; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0 0 -0.1">
+        <!-- Adjust laser origin to come from index finger -->
+        <a-entity position="0 0 -0.1" rotation="-45 0 0">
+            <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
+        </a-entity>
+    </a-entity>
 
-    <script>
-        const scene = document.querySelector('a-scene');
-        scene.addEventListener('enter-vr', () => log('Point at the deck and press trigger to draw a card, use grip to grab cards'));
-        scene.addEventListener('loaded', () => log('Scene loaded - Click "Enter VR" when ready'));
-    </script>
+    <!-- Add Layout Menu -->
+    <a-entity layout-menu></a-entity>
+
 </body>
 </html> 
