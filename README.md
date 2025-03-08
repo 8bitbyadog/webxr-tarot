@@ -1,112 +1,65 @@
-# WebXR Tarot Reading Application
+# WebXR Tarot
 
-A virtual reality tarot reading application built with A-Frame that works on Meta Quest 3 with hand tracking.
+An immersive WebXR tarot reading experience that works on VR devices like the Meta Quest, featuring hand tracking for natural interaction with the cards.
 
 ## Features
 
-- Immersive mystical environment with a tarot table
-- Full Major Arcana deck with card meanings
-- Two spread types: Three-Card and Celtic Cross
-- Hand tracking for natural interaction with cards
-- Card flip animations and sound effects
-- Detailed card meaning display
+- Full Major Arcana deck with beautiful card artwork
+- Hand tracking for natural card interaction
+- Multiple spread options (3-card spread and Celtic Cross)
+- Immersive 3D environment
+- Ambient sound effects and music
+- Responsive design that works in both VR and non-VR modes
 
 ## Requirements
 
-- Meta Quest 3 (or other WebXR-compatible VR headset with hand tracking)
-- Modern web browser with WebXR support
-- Internet connection (for loading assets)
+- A WebXR-compatible browser
+- For VR: A compatible VR headset (tested with Meta Quest)
+- For hand tracking: A device with hand tracking capabilities (like Meta Quest)
 
-## How to Use
+## Setup
 
-1. **Setup**:
-   - Host the application on a web server or use a local development server
-   - Access the application URL on your Meta Quest 3 browser
-   - Grant necessary permissions for hand tracking
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd webxr-tarot
+```
 
-2. **Controls**:
-   - Use your hands to interact with the UI and cards
-   - Pinch gesture (thumb and index finger) to select buttons
-   - Grab gesture (closed hand) to pick up and move cards
-   - Tap/click on a card to flip it and reveal its meaning
+2. Serve the files using a local web server. You can use Python's built-in server:
+```bash
+python -m http.server 8000
+```
 
-3. **Reading Process**:
-   - Click the "Shuffle Deck" button to shuffle the cards
-   - Select either "3-Card Spread" or "Celtic Cross" button
-   - Cards will be automatically dealt to their positions
-   - Flip each card to reveal its meaning
-   - The card's meaning will be displayed above the table
-   - Use the "Reset" button to clear the spread and start over
+3. Access the application:
+- Local development: Visit `http://localhost:8000`
+- VR headset: Visit `http://[your-local-ip]:8000`
 
-## Spread Types
+## Usage
 
-### Three-Card Spread
-A simple spread with three positions:
-- Past: Influences from the past affecting the situation
-- Present: Current situation and immediate influences
-- Future: Potential outcome or future influences
-
-### Celtic Cross Spread
-A more complex 10-card spread:
-1. Present: The present situation or influence
-2. Challenge: An immediate challenge or obstacle
-3. Foundation: The basis of the situation
-4. Recent Past: Events that are just passing
-5. Potential: The best outcome that could be achieved
-6. Near Future: Events coming in the near future
-7. Self: Your attitude or approach to the situation
-8. Environment: The influence of others
-9. Hopes/Fears: Your hopes and/or fears about the outcome
-10. Outcome: The ultimate outcome of the situation
+1. Put on your VR headset and visit the application URL
+2. Enable hand tracking on your device
+3. Use the UI buttons to:
+   - Shuffle the deck
+   - Choose a spread type (3-card or Celtic Cross)
+   - Reset the reading
+4. Use your hands to:
+   - Draw cards from the deck
+   - Place cards in the spread positions
+   - Flip cards to reveal their meanings
 
 ## Development
 
-### File Structure
-- `index.html` - Main HTML file with A-Frame scene setup
-- `js/card-system.js` - Tarot deck and card components
-- `js/hand-tracking.js` - Hand tracking and gesture detection
-- `js/spreads.js` - Tarot spread layouts and positioning
-- `assets/` - Directory for images and sounds
-
-### Adding Card Images
-Before using the application, you'll need to add card images to the `assets/images/major-arcana/` directory. Each card should be named according to its ID in the card data (e.g., `fool.jpg`, `magician.jpg`, etc.).
-
-You'll also need to add a card back image at `assets/images/card-back.jpg`.
-
-### Adding Sound Effects
-The application uses the following sound files:
-- `assets/sounds/card-flip.mp3` - Sound when flipping a card
-- `assets/sounds/card-shuffle.mp3` - Sound when shuffling the deck
-- `assets/sounds/ambient-music.mp3` - Background ambient music
-
-## Customization
-
-### Changing the Visual Style
-The application uses a dark purple/blue color scheme. You can modify the colors in the HTML file:
-- Main purple color: `#9370DB`
-- Dark background: `#1a1a2e`
-- Secondary background: `#2a2a4e`
-- Table color: `#4B0082`
-
-### Adding More Cards
-To add the Minor Arcana or other cards, modify the `TAROT_CARDS` array in `js/card-system.js` and add the corresponding images to the assets directory.
-
-## Troubleshooting
-
-- **Hand tracking not working**: Ensure you have good lighting and that your hands are visible to the headset cameras.
-- **Performance issues**: Reduce the complexity of the environment or disable some visual effects.
-- **Cards not appearing**: Check that all card images are properly loaded in the assets directory.
-
-## Credits
-
-- Built with [A-Frame](https://aframe.io/)
-- Uses [Super Hands](https://github.com/wmurphyrd/aframe-super-hands-component) for interactions
-- Tarot card meanings sourced from traditional tarot interpretations
+The application uses:
+- A-Frame for WebXR/3D rendering
+- Custom hand tracking components
+- Modular JavaScript for card and spread management
 
 ## License
 
-This project is available for personal and educational use.
+[Your chosen license]
 
----
+## Credits
 
-Enjoy your virtual tarot reading experience! 
+- Card artwork: [Credit your source]
+- Sound effects: [Credit your source]
+- Ambient music: [Credit your source] 
