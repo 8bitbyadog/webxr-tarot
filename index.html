@@ -34,18 +34,13 @@
             background: #9370DB;
         }
     </style>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="js/card-system.js"></script>
-    <script src="js/controller-interaction.js"></script>
-    <script src="js/spreads.js"></script>
-    <script src="js/asset-loader.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>WebXR Tarot Experience</h1>
         <p>Welcome to the WebXR Tarot application. Choose your experience below:</p>
         
-        <a href="tarot-simple.html" class="button">Enter Simple Tarot Experience</a>
+        <a href="tarot-app.html" class="button">Enter Tarot Experience</a>
         
         <div style="margin-top: 40px;">
             <h2>Requirements</h2>
@@ -60,38 +55,10 @@
                 <li>Click the button above to launch the experience</li>
                 <li>Put on your VR headset</li>
                 <li>Click "Enter VR" when ready</li>
-                <li>Use grip buttons to grab cards</li>
+                <li>Use trigger buttons to grab cards</li>
                 <li>Point at the deck to draw new cards</li>
             </ul>
         </div>
     </div>
-    <a-scene>
-      <!-- Environment -->
-      <a-entity environment="preset: forest; groundColor: #553613;"></a-entity>
-      
-      <!-- Table -->
-      <a-cylinder position="0 0.5 -0.8" radius="0.5" height="0.02" color="#553613"></a-cylinder>
-      
-      <!-- Controllers -->
-      <a-entity 
-        id="rightHand" 
-        oculus-touch-controls="hand: right" 
-        laser-controls="hand: right"
-        controller-interaction
-        raycaster="objects: .interactive; far: 10">
-      </a-entity>
-      
-      <a-entity 
-        id="leftHand" 
-        oculus-touch-controls="hand: left"
-        laser-controls="hand: left"
-        raycaster="objects: .interactive; far: 10">
-      </a-entity>
-
-      <!-- Camera -->
-      <a-entity position="0 1.6 0">
-        <a-camera></a-camera>
-      </a-entity>
-    </a-scene>
 </body>
 </html> 
