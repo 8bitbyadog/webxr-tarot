@@ -2,9 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Simple WebXR Tarot Debug</title>
+    <title>Simple WebXR Tarot</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
     
     <style>
         #status {
@@ -24,6 +25,91 @@
             console.log(msg);
             document.getElementById('status').textContent = msg;
         }
+
+        // Component for the deck of cards
+        AFRAME.registerComponent('tarot-deck', {
+            init: function() {
+                this.cardCount = 22; // Major Arcana
+                this.isHovered = false;
+                
+                // Create visual cursor feedback
+                this.cursorRing = document.createElement('a-ring');
+                this.cursorRing.setAttribute('radius-inner', '0.01');
+                this.cursorRing.setAttribute('radius-outer', '0.02');
+                this.cursorRing.setAttribute('material', {
+                    color: '#9370DB',
+                    opacity: 0.8,
+                    shader: 'flat'
+                });
+                this.cursorRing.setAttribute('position', '0 0.001 0');
+                this.cursorRing.setAttribute('rotation', '-90 0 0');
+                this.cursorRing.setAttribute('visible', false);
+                this.el.appendChild(this.cursorRing);
+
+                // Hover feedback
+                this.el.addEventListener('raycaster-intersected', () => {
+                    this.isHovered = true;
+                    this.cursorRing.setAttribute('visible', true);
+                    this.el.setAttribute('material', 'emissive', '#9370DB');
+                    this.el.setAttribute('material', 'emissiveIntensity', 0.2);
+                });
+
+                this.el.addEventListener('raycaster-intersected-cleared', () => {
+                    this.isHovered = false;
+                    this.cursorRing.setAttribute('visible', false);
+                    this.el.setAttribute('material', 'emissiveIntensity', 0);
+                });
+
+                // Draw card on trigger press
+                this.el.addEventListener('click', () => {
+                    if (this.cardCount > 0) {
+                        this.drawCard();
+                    }
+                });
+            },
+
+            drawCard: function() {
+                if (this.cardCount <= 0) return;
+
+                // Create a new card
+                const card = document.createElement('a-entity');
+                card.setAttribute('geometry', {
+                    primitive: 'plane',
+                    width: 0.063,
+                    height: 0.11
+                });
+                card.setAttribute('material', {
+                    color: 'white',
+                    side: 'double'
+                });
+                
+                // Position slightly above deck
+                const deckPosition = this.el.getAttribute('position');
+                card.setAttribute('position', {
+                    x: deckPosition.x,
+                    y: deckPosition.y + 0.02,
+                    z: deckPosition.z
+                });
+
+                // Animate card being drawn
+                card.setAttribute('animation', {
+                    property: 'position',
+                    to: `${deckPosition.x} ${deckPosition.y + 0.2} ${deckPosition.z - 0.2}`,
+                    dur: 1000,
+                    easing: 'easeOutQuad'
+                });
+                card.setAttribute('animation__rotation', {
+                    property: 'rotation',
+                    to: '-20 0 0',
+                    dur: 1000,
+                    easing: 'easeOutQuad'
+                });
+
+                this.el.sceneEl.appendChild(card);
+                this.cardCount--;
+                log(`Drew a card! ${this.cardCount} cards remaining`);
+            }
+        });
     </script>
 </head>
 <body>
@@ -31,32 +117,44 @@
 
     <a-scene>
         <!-- Environment -->
-        <a-entity environment="preset: forest"></a-entity>
+        <a-entity environment="preset: forest; ground: flat; groundColor: #553e35; groundColor2: #694439; dressing: trees; dressingAmount: 500; dressingColor: #234d1e; grid: none"></a-entity>
 
         <!-- Table -->
         <a-cylinder position="0 0.75 -1" radius="0.5" height="0.05" color="#4B0082"></a-cylinder>
 
-        <!-- Debug Elements -->
-        <a-box position="0 1.5 -1" color="red" scale="0.1 0.1 0.1" animation="property: rotation; to: 0 360 0; loop: true; dur: 2000"></a-box>
-        <a-sphere position="-0.5 1.5 -1" color="blue" radius="0.05" animation="property: position; dir: alternate; dur: 2000; easing: easeInOutSine; loop: true; to: -0.5 1.7 -1"></a-sphere>
+        <!-- Tarot Deck -->
+        <a-box position="0 0.78 -1" 
+               width="0.063" height="0.03" depth="0.11"
+               color="#1a1a2e"
+               material="metalness: 0.3; roughness: 0.7"
+               tarot-deck></a-box>
 
-        <!-- Card -->
-        <a-plane position="0 1 -1" 
-                width="0.063" height="0.11" 
-                color="white"
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"></a-plane>
-
-        <!-- Player Rig -->
-        <a-entity position="0 0 0">
-            <a-camera position="0 1.6 0"></a-camera>
-            <a-entity laser-controls="hand: left" raycaster="showLine: true; far: 10; lineColor: magenta"></a-entity>
-            <a-entity laser-controls="hand: right" raycaster="showLine: true; far: 10; lineColor: magenta"></a-entity>
+        <!-- Player Rig with Movement -->
+        <a-entity id="rig" position="0 0 0.5" movement-controls="fly: false">
+            <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+                <a-cursor visible="false"></a-cursor>
+            </a-camera>
+            
+            <!-- Controllers -->
+            <a-entity id="leftHand"
+                      hand-controls="hand: left"
+                      laser-controls="hand: left"
+                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5">
+                <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
+            </a-entity>
+            
+            <a-entity id="rightHand"
+                      hand-controls="hand: right"
+                      laser-controls="hand: right"
+                      raycaster="objects: [tarot-deck]; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5">
+                <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
+            </a-entity>
         </a-entity>
     </a-scene>
 
     <script>
         const scene = document.querySelector('a-scene');
-        scene.addEventListener('enter-vr', () => log('Entered VR - You should see a spinning card and red cube'));
+        scene.addEventListener('enter-vr', () => log('Point at the deck and press trigger to draw a card'));
         scene.addEventListener('loaded', () => log('Scene loaded - Click "Enter VR" when ready'));
     </script>
 </body>
