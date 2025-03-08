@@ -95,17 +95,43 @@
                 this.originalRotation = this.el.getAttribute('rotation');
                 this.grabbing = false;
                 this.currentHand = null;
+                this.isHovered = false;
 
+                // Hover effect
+                this.el.addEventListener('raycaster-intersected', () => {
+                    if (!this.grabbing) {
+                        this.isHovered = true;
+                        this.el.setAttribute('animation__hover', {
+                            property: 'position',
+                            dir: 'alternate',
+                            dur: 1000,
+                            easing: 'easeInOutSine',
+                            loop: true,
+                            to: `${this.el.getAttribute('position').x} ${parseFloat(this.el.getAttribute('position').y) + 0.02} ${this.el.getAttribute('position').z}`
+                        });
+                        this.el.setAttribute('material', 'opacity', 0.8);
+                    }
+                });
+
+                this.el.addEventListener('raycaster-intersected-cleared', () => {
+                    if (!this.grabbing) {
+                        this.isHovered = false;
+                        this.el.removeAttribute('animation__hover');
+                        this.el.setAttribute('material', 'opacity', 1);
+                    }
+                });
+
+                // Grip handling
                 this.el.addEventListener('gripdown', this.onGripDown.bind(this));
                 this.el.addEventListener('gripup', this.onGripUp.bind(this));
-                this.el.addEventListener('raycaster-intersected', () => {
-                    this.el.setAttribute('material', 'opacity', 0.8);
-                });
-                this.el.addEventListener('raycaster-intersected-cleared', () => {
-                    this.el.setAttribute('material', 'opacity', 1);
+
+                // Add smooth transition
+                this.el.setAttribute('animation', {
+                    property: 'position',
+                    dur: 300,
+                    easing: 'easeOutQuad'
                 });
 
-                // Debug logging
                 console.log('Card component initialized:', this.el.id);
             },
 
@@ -115,17 +141,27 @@
                 this.grabbing = true;
                 this.currentHand = evt.target;
                 
-                // Parent to hand
-                const handPosition = new THREE.Vector3();
-                evt.target.object3D.getWorldPosition(handPosition);
+                // Visual feedback
+                this.el.setAttribute('material', 'opacity', 0.9);
                 
-                this.el.setAttribute('position', {
-                    x: 0,
-                    y: -0.05,
-                    z: -0.1
+                // Smooth transition to hand
+                this.el.setAttribute('animation__grab', {
+                    property: 'position',
+                    dur: 150,
+                    easing: 'easeOutQuad',
+                    to: '0 -0.05 -0.1'
                 });
-                
+
                 evt.target.appendChild(this.el);
+                
+                // Add slight rotation for more natural feel
+                this.el.setAttribute('animation__rotate', {
+                    property: 'rotation',
+                    dur: 200,
+                    easing: 'easeOutQuad',
+                    to: '-10 0 0'
+                });
+
                 console.log('Card grabbed by hand:', evt.target.id);
             },
 
@@ -154,18 +190,47 @@
                     }
                 });
 
+                // Smooth release animation
                 if (closestMarker) {
-                    // Snap to marker
-                    this.el.setAttribute('position', closestMarker.getAttribute('position'));
-                    this.el.setAttribute('rotation', closestMarker.getAttribute('rotation'));
+                    // Snap to marker with animation
+                    this.el.setAttribute('animation__release', {
+                        property: 'position',
+                        dur: 300,
+                        easing: 'easeOutElastic',
+                        to: closestMarker.getAttribute('position')
+                    });
+                    this.el.setAttribute('animation__rotate', {
+                        property: 'rotation',
+                        dur: 300,
+                        easing: 'easeOutElastic',
+                        to: closestMarker.getAttribute('rotation')
+                    });
                     console.log('Card snapped to layout position');
                 } else {
-                    // Return to original position
+                    // Return to table with a gentle drop animation
                     this.originalParent.appendChild(this.el);
-                    this.el.setAttribute('position', this.originalPosition);
-                    this.el.setAttribute('rotation', this.originalRotation);
-                    console.log('Card returned to original position');
+                    const dropHeight = 0.02; // Small bounce height
+                    
+                    this.el.setAttribute('animation__drop', {
+                        property: 'position',
+                        dur: 500,
+                        easing: 'easeOutBounce',
+                        to: `${this.originalPosition.x} ${this.originalPosition.y + dropHeight} ${this.originalPosition.z}`
+                    });
+                    
+                    // Reset rotation smoothly
+                    this.el.setAttribute('animation__rotate', {
+                        property: 'rotation',
+                        dur: 300,
+                        easing: 'easeOutQuad',
+                        to: this.originalRotation
+                    });
+                    
+                    console.log('Card returned to table');
                 }
+
+                // Reset opacity
+                this.el.setAttribute('material', 'opacity', 1);
             }
         });
 
@@ -260,17 +325,41 @@
             }
         });
 
-        // Tarot Deck Component
+        // Enhanced Tarot Deck Component
         AFRAME.registerComponent('tarot-deck', {
             init: function() {
                 this.cardCount = 22;
                 this.cardImages = ['#fool', '#magician', '#priestess'];
+                this.isDrawing = false;
+                
+                // Add hover effect to deck
+                this.el.addEventListener('raycaster-intersected', () => {
+                    if (!this.isDrawing) {
+                        this.el.setAttribute('material', 'opacity', 0.8);
+                        this.el.setAttribute('animation__hover', {
+                            property: 'position',
+                            dir: 'alternate',
+                            dur: 1000,
+                            easing: 'easeInOutSine',
+                            loop: true,
+                            to: `${this.el.getAttribute('position').x} ${parseFloat(this.el.getAttribute('position').y) + 0.01} ${this.el.getAttribute('position').z}`
+                        });
+                    }
+                });
+
+                this.el.addEventListener('raycaster-intersected-cleared', () => {
+                    if (!this.isDrawing) {
+                        this.el.setAttribute('material', 'opacity', 1);
+                        this.el.removeAttribute('animation__hover');
+                    }
+                });
                 
                 this.el.addEventListener('click', () => {
-                    if (this.cardCount > 0) {
+                    if (this.cardCount > 0 && !this.isDrawing) {
                         this.drawCard();
                     }
                 });
+
                 console.log('Tarot deck initialized with', this.cardCount, 'cards');
             },
 
@@ -279,6 +368,8 @@
                     console.log('No more cards in deck');
                     return;
                 }
+
+                this.isDrawing = true;
 
                 const card = document.createElement('a-entity');
                 card.setAttribute('geometry', {
@@ -290,14 +381,30 @@
                 const randomCard = this.cardImages[Math.floor(Math.random() * this.cardImages.length)];
                 card.setAttribute('material', {
                     src: randomCard,
-                    side: 'double'
+                    side: 'double',
+                    opacity: 0
                 });
 
                 const deckPosition = this.el.getAttribute('position');
                 card.setAttribute('position', {
                     x: deckPosition.x,
-                    y: deckPosition.y + 0.02,
+                    y: deckPosition.y,
                     z: deckPosition.z
+                });
+
+                // Add draw animation
+                card.setAttribute('animation__draw', {
+                    property: 'position',
+                    dur: 700,
+                    easing: 'easeOutElastic',
+                    to: `${deckPosition.x} ${deckPosition.y + 0.05} ${deckPosition.z}`
+                });
+
+                card.setAttribute('animation__fade', {
+                    property: 'material.opacity',
+                    dur: 300,
+                    easing: 'easeOutQuad',
+                    to: 1
                 });
 
                 card.setAttribute('grabbable-card', '');
@@ -305,8 +412,13 @@
 
                 this.el.sceneEl.appendChild(card);
                 this.cardCount--;
+
+                // Reset drawing state after animation
+                setTimeout(() => {
+                    this.isDrawing = false;
+                }, 700);
+
                 console.log('Drew card:', randomCard, 'Cards remaining:', this.cardCount);
-                log(`Drew a card! ${this.cardCount} cards remaining`);
             }
         });
     </script>
