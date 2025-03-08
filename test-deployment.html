@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>GitHub Pages Deployment Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4B0082;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GitHub Pages Deployment Test</h1>
+        <p>If you can see this page, your GitHub Pages deployment is working correctly!</p>
+        <p>Timestamp: <span id="timestamp"></span></p>
+        <p><a href="index.html">Go to WebXR Tarot Application</a></p>
+    </div>
+
+    <script>
+        // Add current timestamp to verify this is the latest version
+        document.getElementById('timestamp').textContent = new Date().toISOString();
+    </script>
+</body>
+</html> 
