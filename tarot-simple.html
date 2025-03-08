@@ -17,14 +17,157 @@
             padding: 10px;
             font-family: Arial, sans-serif;
             z-index: 999;
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-family: Arial, sans-serif;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #4B0082;
+            border-top: 5px solid #9370DB;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #error-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            z-index: 9999;
+            display: none;
+            text-align: center;
+            max-width: 80%;
         }
     </style>
 
     <script>
-        function log(msg) {
-            console.log(msg);
-            document.getElementById('status').textContent = msg;
-        }
+        // Error handling and logging
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('Error: ', msg, 'at', url, ':', lineNo);
+            const errorDisplay = document.getElementById('error-display');
+            if (errorDisplay) {
+                errorDisplay.textContent = `Error: ${msg}`;
+                errorDisplay.style.display = 'block';
+                setTimeout(() => errorDisplay.style.display = 'none', 5000);
+            }
+            return false;
+        };
+
+        // Enhanced Grabbable Card Component
+        AFRAME.registerComponent('grabbable-card', {
+            schema: {
+                grabbed: { default: false }
+            },
+
+            init: function() {
+                this.GRAB_DISTANCE = 0.2;
+                this.originalParent = this.el.parentNode;
+                this.originalPosition = this.el.getAttribute('position');
+                this.originalRotation = this.el.getAttribute('rotation');
+                this.grabbing = false;
+                this.currentHand = null;
+
+                this.el.addEventListener('gripdown', this.onGripDown.bind(this));
+                this.el.addEventListener('gripup', this.onGripUp.bind(this));
+                this.el.addEventListener('raycaster-intersected', () => {
+                    this.el.setAttribute('material', 'opacity', 0.8);
+                });
+                this.el.addEventListener('raycaster-intersected-cleared', () => {
+                    this.el.setAttribute('material', 'opacity', 1);
+                });
+
+                // Debug logging
+                console.log('Card component initialized:', this.el.id);
+            },
+
+            onGripDown: function(evt) {
+                if (this.grabbing) return;
+                
+                this.grabbing = true;
+                this.currentHand = evt.target;
+                
+                // Parent to hand
+                const handPosition = new THREE.Vector3();
+                evt.target.object3D.getWorldPosition(handPosition);
+                
+                this.el.setAttribute('position', {
+                    x: 0,
+                    y: -0.05,
+                    z: -0.1
+                });
+                
+                evt.target.appendChild(this.el);
+                console.log('Card grabbed by hand:', evt.target.id);
+            },
+
+            onGripUp: function() {
+                if (!this.grabbing) return;
+                
+                this.grabbing = false;
+                this.currentHand = null;
+
+                // Check for nearby layout markers
+                const markers = document.querySelectorAll('[data-layout-marker]');
+                const cardWorldPos = new THREE.Vector3();
+                this.el.object3D.getWorldPosition(cardWorldPos);
+                
+                let closestMarker = null;
+                let closestDistance = this.GRAB_DISTANCE;
+
+                markers.forEach(marker => {
+                    const markerPos = new THREE.Vector3();
+                    marker.object3D.getWorldPosition(markerPos);
+                    const distance = cardWorldPos.distanceTo(markerPos);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestMarker = marker;
+                    }
+                });
+
+                if (closestMarker) {
+                    // Snap to marker
+                    this.el.setAttribute('position', closestMarker.getAttribute('position'));
+                    this.el.setAttribute('rotation', closestMarker.getAttribute('rotation'));
+                    console.log('Card snapped to layout position');
+                } else {
+                    // Return to original position
+                    this.originalParent.appendChild(this.el);
+                    this.el.setAttribute('position', this.originalPosition);
+                    this.el.setAttribute('rotation', this.originalRotation);
+                    console.log('Card returned to original position');
+                }
+            }
+        });
 
         // Layout Menu Component
         AFRAME.registerComponent('layout-menu', {
@@ -43,9 +186,11 @@
                         { x: -0.1, y: 0.755, z: -1.0, label: 'Future' }
                     ]}
                 ];
+                
                 this.currentLayout = 0;
                 this.createLayoutMarkers();
                 this.createMenuButtons();
+                console.log('Layout menu initialized');
             },
 
             createLayoutMarkers: function() {
@@ -69,6 +214,7 @@
                     
                     this.el.sceneEl.appendChild(marker);
                 });
+                console.log('Created layout markers for:', layout.name);
             },
 
             createMenuButtons: function() {
@@ -91,84 +237,26 @@
                 nextBtn.setAttribute('class', 'interactive');
                 nextBtn.addEventListener('click', () => this.nextLayout());
                 this.el.sceneEl.appendChild(nextBtn);
+                
+                console.log('Created menu buttons');
             },
 
             clearMarkers: function() {
                 const markers = document.querySelectorAll('[data-layout-marker]');
                 markers.forEach(marker => marker.parentNode.removeChild(marker));
+                console.log('Cleared existing markers');
             },
 
             nextLayout: function() {
                 this.currentLayout = (this.currentLayout + 1) % this.layouts.length;
                 this.createLayoutMarkers();
+                console.log('Switched to next layout:', this.layouts[this.currentLayout].name);
             },
 
             previousLayout: function() {
                 this.currentLayout = (this.currentLayout - 1 + this.layouts.length) % this.layouts.length;
                 this.createLayoutMarkers();
-            }
-        });
-
-        // Enhanced Grabbable Card Component
-        AFRAME.registerComponent('grabbable-card', {
-            init: function() {
-                this.isGrabbed = false;
-                this.grabbingHand = null;
-                this.originalParent = this.el.parentNode;
-                this.startPosition = this.el.getAttribute('position');
-                this.startRotation = this.el.getAttribute('rotation');
-
-                this.el.addEventListener('gripdown', (evt) => {
-                    if (!this.isGrabbed) {
-                        this.isGrabbed = true;
-                        this.grabbingHand = evt.target;
-                        this.attachToHand(evt.target);
-                    }
-                });
-
-                this.el.addEventListener('gripup', () => {
-                    if (this.isGrabbed) {
-                        this.isGrabbed = false;
-                        this.detachFromHand();
-                    }
-                });
-            },
-
-            attachToHand: function(hand) {
-                // Parent to hand
-                this.el.setAttribute('position', '0.1 -0.05 -0.1');
-                this.el.setAttribute('rotation', '-45 0 0');
-                hand.appendChild(this.el);
-            },
-
-            detachFromHand: function() {
-                // Check if near any layout markers
-                const markers = document.querySelectorAll('[data-layout-marker]');
-                const cardWorldPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
-                let closestMarker = null;
-                let closestDist = 0.1; // Snap threshold
-
-                markers.forEach(marker => {
-                    const markerPos = marker.object3D.getWorldPosition(new THREE.Vector3());
-                    const dist = cardWorldPos.distanceTo(markerPos);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestMarker = marker;
-                    }
-                });
-
-                if (closestMarker) {
-                    // Snap to marker position
-                    this.el.setAttribute('position', closestMarker.getAttribute('position'));
-                    this.el.setAttribute('rotation', closestMarker.getAttribute('rotation'));
-                }
-
-                // Return to scene root if not snapped
-                if (!closestMarker) {
-                    this.originalParent.appendChild(this.el);
-                    this.el.setAttribute('position', this.startPosition);
-                    this.el.setAttribute('rotation', this.startRotation);
-                }
+                console.log('Switched to previous layout:', this.layouts[this.currentLayout].name);
             }
         });
 
@@ -183,10 +271,14 @@
                         this.drawCard();
                     }
                 });
+                console.log('Tarot deck initialized with', this.cardCount, 'cards');
             },
 
             drawCard: function() {
-                if (this.cardCount <= 0) return;
+                if (this.cardCount <= 0) {
+                    console.log('No more cards in deck');
+                    return;
+                }
 
                 const card = document.createElement('a-entity');
                 card.setAttribute('geometry', {
@@ -213,13 +305,19 @@
 
                 this.el.sceneEl.appendChild(card);
                 this.cardCount--;
+                console.log('Drew card:', randomCard, 'Cards remaining:', this.cardCount);
                 log(`Drew a card! ${this.cardCount} cards remaining`);
             }
         });
     </script>
 </head>
 <body>
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+        <div id="loading-status">Loading WebXR Tarot Experience...</div>
+    </div>
     <div id="status">Loading...</div>
+    <div id="error-display"></div>
 
     <a-scene>
         <a-assets>
@@ -275,8 +373,57 @@
 
     <script>
         const scene = document.querySelector('a-scene');
-        scene.addEventListener('enter-vr', () => log('Point at the deck and press trigger to draw a card, use grip to grab cards'));
-        scene.addEventListener('loaded', () => log('Scene loaded - Click "Enter VR" when ready'));
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingStatus = document.getElementById('loading-status');
+        const status = document.getElementById('status');
+
+        // Asset loading tracking
+        let assetsLoaded = 0;
+        const totalAssets = document.querySelectorAll('a-assets img').length;
+
+        document.querySelector('a-assets').addEventListener('loaded', () => {
+            console.log('All assets loaded successfully');
+            loadingStatus.textContent = 'Assets loaded successfully!';
+        });
+
+        document.querySelectorAll('a-assets img').forEach(img => {
+            img.addEventListener('loaded', () => {
+                assetsLoaded++;
+                loadingStatus.textContent = `Loading assets (${assetsLoaded}/${totalAssets})...`;
+                console.log(`Asset loaded: ${img.id}`);
+            });
+        });
+
+        scene.addEventListener('loaded', () => {
+            console.log('Scene loaded successfully');
+            loadingScreen.style.display = 'none';
+            status.textContent = 'Scene loaded - Click "Enter VR" when ready';
+        });
+
+        scene.addEventListener('enter-vr', () => {
+            console.log('Entered VR mode');
+            status.textContent = 'Point at the deck and press trigger to draw a card, use grip to grab cards';
+        });
+
+        // WebXR session monitoring
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr')
+                .then(supported => {
+                    if (!supported) {
+                        throw new Error('VR not supported');
+                    }
+                    console.log('WebXR VR supported');
+                })
+                .catch(err => {
+                    console.error('WebXR Error:', err);
+                    loadingStatus.textContent = 'Error: VR not supported';
+                    status.textContent = 'Error: VR not supported';
+                });
+        } else {
+            console.error('WebXR not available');
+            loadingStatus.textContent = 'Error: WebXR not available';
+            status.textContent = 'Error: WebXR not available';
+        }
     </script>
 </body>
 </html> 
