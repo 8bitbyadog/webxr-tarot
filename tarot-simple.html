@@ -421,6 +421,142 @@
                 console.log('Drew card:', randomCard, 'Cards remaining:', this.cardCount);
             }
         });
+
+        // Hand Tracking Component for Natural Finger Pointing
+        AFRAME.registerComponent('hand-tracking', {
+            schema: {
+                hand: { type: 'string', default: 'right' }
+            },
+
+            init: function() {
+                this.hand = null;
+                this.indexTip = new THREE.Vector3();
+                this.wrist = new THREE.Vector3();
+                this.direction = new THREE.Vector3();
+                this.worldPosition = new THREE.Vector3();
+                this.raycaster = null;
+                this.rayLine = null;
+
+                // Create visual ray line
+                this.createRayLine();
+
+                // Initialize hand tracking
+                this.el.addEventListener('hand-tracking-controls-ready', () => {
+                    console.log(`Hand tracking ready for ${this.data.hand} hand`);
+                    this.hand = this.el.components['hand-tracking-controls'];
+                });
+
+                // Create raycaster for interaction
+                this.raycaster = document.createElement('a-entity');
+                this.raycaster.setAttribute('raycaster', {
+                    objects: '.interactive',
+                    showLine: false,
+                    far: 5,
+                    origin: { x: 0, y: 0, z: 0 },
+                    direction: { x: 0, y: 0, z: -1 }
+                });
+                this.el.appendChild(this.raycaster);
+            },
+
+            createRayLine: function() {
+                // Create ray line geometry
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(2 * 3); // 2 points × 3 coordinates
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+                // Create ray line material
+                const material = new THREE.LineBasicMaterial({
+                    color: 0x7b2cbf,
+                    opacity: 0.7,
+                    transparent: true,
+                    linewidth: 1
+                });
+
+                // Create the line and add it to the scene
+                this.rayLine = new THREE.Line(geometry, material);
+                this.el.object3D.add(this.rayLine);
+            },
+
+            updateRayLine: function(start, end) {
+                const positions = this.rayLine.geometry.attributes.position.array;
+                
+                // Start point
+                positions[0] = start.x;
+                positions[1] = start.y;
+                positions[2] = start.z;
+                
+                // End point
+                positions[3] = end.x;
+                positions[4] = end.y;
+                positions[5] = end.z;
+                
+                this.rayLine.geometry.attributes.position.needsUpdate = true;
+            },
+
+            tick: function() {
+                if (!this.hand || !this.hand.mesh) return;
+
+                // Get index fingertip position in local space
+                const indexTipPosition = this.hand.getJointPose('index-finger-tip');
+                if (!indexTipPosition) return;
+
+                // Convert to world coordinates
+                this.indexTip.copy(indexTipPosition.position);
+                this.el.object3D.localToWorld(this.indexTip);
+
+                // Get wrist position for direction calculation
+                const wristPosition = this.hand.getJointPose('wrist');
+                if (!wristPosition) return;
+
+                this.wrist.copy(wristPosition.position);
+                this.el.object3D.localToWorld(this.wrist);
+
+                // Calculate pointing direction
+                this.direction.subVectors(this.indexTip, this.wrist).normalize();
+
+                // Update raycaster
+                const rayEnd = this.direction.clone().multiplyScalar(5).add(this.indexTip);
+                this.updateRayLine(this.indexTip, rayEnd);
+
+                // Update raycaster position and direction
+                this.raycaster.setAttribute('raycaster', {
+                    origin: this.indexTip,
+                    direction: this.direction
+                });
+
+                // Show ray only when pointing (index finger extended)
+                const isPointing = this.hand.getFingerCurl('index') < 0.1;
+                this.rayLine.visible = isPointing;
+            }
+        });
+
+        // Intersection Cursor Component
+        AFRAME.registerComponent('intersection-cursor', {
+            init: function() {
+                this.cursor = document.createElement('a-sphere');
+                this.cursor.setAttribute('radius', '0.005');
+                this.cursor.setAttribute('material', {
+                    color: '#7b2cbf',
+                    opacity: 0.7,
+                    transparent: true
+                });
+                this.cursor.setAttribute('visible', false);
+                this.el.sceneEl.appendChild(this.cursor);
+
+                // Listen for raycaster intersection
+                this.el.addEventListener('raycaster-intersection', evt => {
+                    const intersection = evt.detail.intersections[0];
+                    if (intersection) {
+                        this.cursor.setAttribute('position', intersection.point);
+                        this.cursor.setAttribute('visible', true);
+                    }
+                });
+
+                this.el.addEventListener('raycaster-intersection-cleared', () => {
+                    this.cursor.setAttribute('visible', false);
+                });
+            }
+        });
     </script>
 </head>
 <body>
@@ -453,29 +589,23 @@
                class="interactive"
                tarot-deck></a-box>
 
-        <!-- Player Rig with Movement -->
+        <!-- Updated Player Rig -->
         <a-entity id="rig" position="0 0 0.5" movement-controls="fly: false">
             <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
                 <a-cursor visible="false"></a-cursor>
             </a-camera>
             
-            <!-- Controllers -->
+            <!-- Updated Hand Controllers -->
             <a-entity id="leftHand"
-                      hand-controls="hand: left"
-                      laser-controls="hand: left"
-                      raycaster="objects: .interactive; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0 0 -0.1">
-                <a-entity position="0 0 -0.1" rotation="-45 0 0">
-                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
-                </a-entity>
+                      hand-tracking-controls="hand: left; modelStyle: dots"
+                      hand-tracking="hand: left"
+                      intersection-cursor>
             </a-entity>
             
             <a-entity id="rightHand"
-                      hand-controls="hand: right"
-                      laser-controls="hand: right"
-                      raycaster="objects: .interactive; showLine: true; far: 10; lineColor: #9370DB; lineOpacity: 0.5; origin: 0 0 -0.1">
-                <a-entity position="0 0 -0.1" rotation="-45 0 0">
-                    <a-sphere radius="0.01" color="#9370DB" opacity="0.5"></a-sphere>
-                </a-entity>
+                      hand-tracking-controls="hand: right; modelStyle: dots"
+                      hand-tracking="hand: right"
+                      intersection-cursor>
             </a-entity>
         </a-entity>
 
